@@ -174,26 +174,28 @@ if __name__ == "__main__":
 
 ```
 
-Creating a Clickable Desktop Icon
-#### #1 Convert Script to EXE
+## Creating a EXE FILE
+#### 1. Convert Script to EXE
 
-- Navigate to this link: https://www.iconarchive.com/
-- Search your desired icon. For example: ghost
-- Click All Downloads Format
-- Choose Windows: Download ICO
-- Rename the file into ghost
-- Move the ghost.ico to your folder
+Prepare the Icon
+
+#### Go to: https://www.iconarchive.com/
+##### Download and Rename the file (example: infecto.ico).
+##### Move it to the same folder as your infecto.py.
+##### Take note: whatever you name the .ico file is what you must also put in the PyInstaller command.
 
 Paste this: 
 ```bash
 pip install pyinstaller
-pyinstaller --onefile --windowed --icon=ghost.ico ghost_prank.py
 ```
-#### #2 Create the Desktop Shortcut
-- Right-click desktop → New → Shortcut
-- Browse to: C:\Users\Administrator\Downloads\malware\virus1\dist\ghost_prank.exe
-- Name it "TRICK OR TREAT"
-- Right-click shortcut → Properties → Change Icon → Select your ghost.ico
+```bash
+pyinstaller --onefile --windowed --icon=infecto.ico infecto.py
+```
+#### 2. Create the Desktop Shortcut
+- Right-click Desktop → New → Shortcut
+- Browse to: C:\Users\Administrator\Downloads\LAB\InfectoV\dist\infecto.exe
+- Right-click the shortcut → Properties → Change Icon
+- Select your infecto.ico.
 
 # Virus 2
 
