@@ -1,0 +1,28 @@
+LINUX
+if config
+ip addr
+sudo systemctl stop firewalld
+
+
+PYTHON code
+py -m pip install pynput OR psutil
+
+
+WAHZUHvZ
+https://208.8.8.167/app/endpoints-summary#/agents-preview/deploy
+use your ip address
+copy the code under 4. Run the following commands to download and install the agent.
+open MS powershell run as admin.
+paste the code there.
+then paste code from 5. Start the agent:
+"The Wazuh service was started successfully" successful installation.
+
+
+  program x86
+find ossec-agent
+  find win32ui - click - Wazuh Agent
+View - Config - Change 0.0.0.0 address into your ip address, save
+click manage, click stop,
+  Click maange, click star.
+  Click Refresh
+back to Wazuh Agent - refresh, check if IP address is updated 
