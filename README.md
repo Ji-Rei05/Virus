@@ -459,6 +459,9 @@ update_all(); root.mainloop()
 
 
 ### VIRUS: Fake_error.py
+
+pip install win32gui
+
 ```bash
 import random
 import time
